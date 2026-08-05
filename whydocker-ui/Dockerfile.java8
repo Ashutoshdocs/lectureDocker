@@ -1,0 +1,7 @@
+FROM eclipse-temurin:8-jdk
+WORKDIR /app
+COPY Server.java .
+RUN javac -encoding UTF-8 Server.java
+ENV PORT=8080
+EXPOSE 8080
+CMD ["java", "Server"]

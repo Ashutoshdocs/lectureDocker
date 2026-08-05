@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Java Runtime Control &middot; VM vs Docker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0a1622; --ink-2:#0e1e2f; --ink-3:#14273a;
+    --line:rgba(120,180,220,.14); --line-2:rgba(120,180,220,.28);
+    --paper:#dce8f2; --muted:#8499ab; --muted-2:#5f7488;
+    --amber:#f0a742; --amber-dim:rgba(240,167,66,.12);
+    --cyan:#3fd0dc; --cyan-dim:rgba(63,208,220,.12);
+    --green:#4bce90; --green-dim:rgba(75,206,144,.13);
+    --red:#ef6f6f; --red-dim:rgba(239,111,111,.13);
+    --disp:'Sora',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--ink);color:var(--paper);font-family:var(--body);line-height:1.55;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:34px 34px;min-height:100vh;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  header{border-bottom:1px solid var(--line);padding:34px 0 26px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);display:inline-flex;align-items:center;gap:9px}
+  .eyebrow::before{content:"";width:20px;height:1px;background:var(--line-2)}
+  h1{font-family:var(--disp);font-weight:800;font-size:clamp(1.7rem,4vw,2.5rem);letter-spacing:-.02em;margin:12px 0 0}
+  h1 .a{color:var(--amber)} h1 .c{color:var(--cyan)}
+  .sub{color:var(--muted);margin-top:8px;max-width:680px}
+
+  .env{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+  .chip{font-family:var(--mono);font-size:12px;letter-spacing:.04em;padding:6px 12px;border-radius:20px;border:1px solid var(--line-2);color:var(--muted);display:inline-flex;align-items:center;gap:8px}
+  .chip .d{width:8px;height:8px;border-radius:50%;background:var(--muted-2)}
+  .chip.ok{color:var(--green);border-color:var(--green)} .chip.ok .d{background:var(--green)}
+  .chip.no{color:var(--red);border-color:var(--red)} .chip.no .d{background:var(--red)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:28px 0 60px}
+  .zone{border:1px solid var(--line-2);border-radius:16px;background:linear-gradient(180deg,var(--ink-2),var(--ink));overflow:hidden;display:flex;flex-direction:column}
+  .zone-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:11px}
+  .zone-head .icn{width:12px;height:12px;flex:none}
+  .zone.vm .zone-head .icn{background:var(--amber)}
+  .zone.dk .zone-head .icn{background:var(--cyan);border-radius:50%}
+  .zone-head h2{font-family:var(--disp);font-weight:700;font-size:1.12rem}
+  .zone.vm .zone-head h2 b{color:var(--amber)} .zone.dk .zone-head h2 b{color:var(--cyan)}
+  .zone-note{font-size:.9rem;color:var(--muted);padding:14px 20px 0}
+  .zone-note b{color:var(--paper);font-weight:600}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;padding:16px 20px}
+  button.act{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;background:var(--ink-3);color:var(--paper);border:1px solid var(--line-2);border-radius:9px;padding:10px 14px;cursor:pointer;transition:.15s}
+  button.act:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan)}
+  .zone.vm button.act:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  button.act:disabled{opacity:.4;cursor:not-allowed}
+  button.act.ghost{margin-left:auto;color:var(--muted)}
+  .msg{font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--muted);padding:0 20px 14px;min-height:18px;white-space:pre-wrap}
+  .msg.busy{color:var(--cyan)} .msg.bad{color:var(--red)} .msg.good{color:var(--green)}
+
+  .previews{padding:4px 20px 22px;display:flex;flex-direction:column;gap:14px;flex:1}
+  .frame{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--ink)}
+  .frame .bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--ink-2)}
+  .frame .bar .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}
+  .frame .bar .st{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:14px;border:1px solid var(--line-2);color:var(--muted-2)}
+  .frame .bar .st.live{color:var(--green);border-color:var(--green)}
+  .frame iframe{width:100%;height:210px;border:0;display:block;background:#0a1622}
+  .frame .empty{height:210px;display:flex;align-items:center;justify-content:center;color:var(--muted-2);font-family:var(--mono);font-size:12px;text-align:center;padding:0 16px}
+  .frame a.open{color:var(--cyan);text-decoration:none;font-size:11px}
+
+  footer{border-top:1px solid var(--line);padding:20px 0 40px;color:var(--muted-2);font-family:var(--mono);font-size:11.5px;letter-spacing:.05em}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="eyebrow">Java runtime control panel</span>
+    <h1>Same VM. <span class="a">One page</span> the old way, <span class="c">two pages</span> with Docker.</h1>
+    <p class="sub">On the left you can switch the machine's single Java runtime &mdash; only one app page can be live at a time. On the right, Docker runs both Java versions in separate containers, at once. Watch the live previews as you click.</p>
+    <div class="env" id="env"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- ===================== VM ZONE ===================== -->
+    <section class="zone vm">
+      <div class="zone-head"><span class="icn"></span><h2>The VM way &mdash; <b>one runtime slot</b></h2></div>
+      <p class="zone-note">The host has a single system Java. Start one version and the other <b>stops</b> &mdash; there's only ever one page, on port <b id="vmport">8080</b>.</p>
+      <div class="controls">
+        <button class="act" data-api="/api/vm/start?v=8">&#9654; Run app on Java 8</button>
+        <button class="act" data-api="/api/vm/start?v=17">&#9654; Run app on Java 17</button>
+        <button class="act ghost" data-api="/api/vm/stop">Stop</button>
+      </div>
+      <div class="msg" id="vmMsg">Idle. Pick a version to start the single VM app.</div>
+      <div class="previews">
+        <div class="frame">
+          <div class="bar"><span class="lbl" id="vmLbl">VM app &middot; port 8080</span><span class="st" id="vmSt">stopped</span></div>
+          <div id="vmView" class="empty">No app running. Start Java 8 or Java 17 above.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DOCKER ZONE ===================== -->
+    <section class="zone dk">
+      <div class="zone-head"><span class="icn"></span><h2>The Docker way &mdash; <b>two containers</b></h2></div>
+      <p class="zone-note">Each version ships its own runtime in its own container. Build once, then run both &mdash; <b>both pages stay live</b> together, on ports <b id="d8port">8081</b> and <b id="d17port">8082</b>.</p>
+      <div class="controls">
+        <button class="act" data-api="/api/docker/build">&#9874; Build both images</button>
+        <button class="act" data-api="/api/docker/run">&#9654; Run both containers</button>
+        <button class="act ghost" data-api="/api/docker/stop">Stop</button>
+      </div>
+      <div class="msg" id="dkMsg">Idle. Build the images, then run both containers.</div>
+      <div class="previews">
+        <div class="frame">
+          <div class="bar"><span class="lbl">Container &middot; Java 8 &middot; port 8081</span><span class="st" id="d8St">stopped</span></div>
+          <div id="d8View" class="empty">Java 8 container not running.</div>
+        </div>
+        <div class="frame">
+          <div class="bar"><span class="lbl">Container &middot; Java 17 &middot; port 8082</span><span class="st" id="d17St">stopped</span></div>
+          <div id="d17View" class="empty">Java 17 container not running.</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<footer class="wrap">JAVA RUNTIME CONTROL &middot; ONE VM &middot; VM vs DOCKER &middot; ports 9000 / 8080 / 8081 / 8082</footer>
+
+<script>
+(function(){
+  "use strict";
+  var HOST = window.location.hostname || "localhost";
+  var appURL = function(port){ return "http://" + HOST + ":" + port + "/?t=" + Date.now(); };
+
+  function post(url){ return fetch(url, {method:"POST"}).then(function(r){return r.json();}); }
+  function get(url){ return fetch(url).then(function(r){return r.json();}); }
+
+  // wire buttons
+  document.querySelectorAll("button.act").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var api = btn.getAttribute("data-api");
+      var vm  = api.indexOf("/vm/") > -1;
+      var msg = document.getElementById(vm ? "vmMsg" : "dkMsg");
+      msg.className = "msg busy"; msg.textContent = "working...";
+      document.querySelectorAll("button.act").forEach(function(b){ b.disabled = true; });
+      post(api).then(function(res){
+        msg.className = "msg " + (res.ok ? "good" : "bad");
+        msg.textContent = res.msg || (res.ok ? "done" : "failed");
+        refresh();
+      }).catch(function(e){
+        msg.className = "msg bad"; msg.textContent = "request error: " + e;
+      }).finally(function(){
+        document.querySelectorAll("button.act").forEach(function(b){ b.disabled = false; });
+      });
+    });
+  });
+
+  var frames = { vm:null, d8:null, d17:null };  // remember mounted iframes to avoid reload flicker
+
+  function mount(viewId, on, port, frameKey){
+    var el = document.getElementById(viewId);
+    if(on){
+      if(frames[frameKey] !== port){       // (re)mount only when state flips
+        el.innerHTML = "<iframe src='" + appURL(port) + "' title='app'></iframe>";
+        frames[frameKey] = port;
+      }
+    } else {
+      if(frames[frameKey] !== null){
+        el.className = "empty";
+        el.innerHTML = el.getAttribute("data-empty") || "Not running.";
+        frames[frameKey] = null;
+      }
+    }
+  }
+
+  function chip(id, ok, label){
+    var e = document.getElementById(id);
+    e.className = "chip " + (ok ? "ok" : "no");
+    e.innerHTML = "<span class='d'></span>" + label + ": " + (ok ? "ready" : "missing");
+  }
+
+  function refresh(){
+    get("/api/status").then(function(s){
+      // env row
+      var env = document.getElementById("env");
+      if(!env.dataset.built){
+        env.innerHTML = "<span class='chip' id='c8'></span><span class='chip' id='c17'></span><span class='chip' id='cd'></span>";
+        env.dataset.built = "1";
+      }
+      chip("c8",  s.env.jdk8,  "JDK 8");
+      chip("c17", s.env.jdk17, "JDK 17");
+      chip("cd",  s.env.docker,"Docker");
+
+      document.getElementById("vmport").textContent  = s.ports.vm;
+      document.getElementById("d8port").textContent  = s.ports.d8;
+      document.getElementById("d17port").textContent = s.ports.d17;
+
+      // ---- VM ----
+      var vmSt = document.getElementById("vmSt");
+      var vmLbl= document.getElementById("vmLbl");
+      var vmView = document.getElementById("vmView");
+      vmView.setAttribute("data-empty","No app running. Start Java 8 or Java 17 above.");
+      if(s.vm.running){
+        vmSt.textContent = "live"; vmSt.className = "st live";
+        vmLbl.textContent = "VM app \u00b7 Java " + s.vm.version + " \u00b7 port " + s.ports.vm;
+        mount("vmView", true, s.ports.vm, "vm");
+      } else {
+        vmSt.textContent = "stopped"; vmSt.className = "st";
+        vmLbl.textContent = "VM app \u00b7 port " + s.ports.vm;
+        mount("vmView", false, null, "vm");
+      }
+
+      // ---- Docker ----
+      var d8live  = !!s.docker.java8;
+      var d17live = !!s.docker.java17;
+      var d8St = document.getElementById("d8St"), d17St = document.getElementById("d17St");
+      d8St.textContent  = d8live  ? "live" : "stopped"; d8St.className  = "st" + (d8live ?" live":"");
+      d17St.textContent = d17live ? "live" : "stopped"; d17St.className = "st" + (d17live?" live":"");
+      document.getElementById("d8View").setAttribute("data-empty","Java 8 container not running.");
+      document.getElementById("d17View").setAttribute("data-empty","Java 17 container not running.");
+      mount("d8View",  d8live,  s.ports.d8,  "d8");
+      mount("d17View", d17live, s.ports.d17, "d17");
+    }).catch(function(){ /* control server momentarily busy */ });
+  }
+
+  refresh();
+  setInterval(refresh, 1500);
+})();
+</script>
+</body>
+</html>
