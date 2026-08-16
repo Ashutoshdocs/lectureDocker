@@ -135,9 +135,7 @@ Notice that there is **no password** in the Dockerfile.
 Build the image:
 
 ```powershell
-docker build `
-  -t mysql-demo:1.0 `
-  -f Dockerfile .
+docker build -t mysql-demo:1.0 -f Dockerfile .
 ```
 
 The resulting image is generic:
