@@ -1,0 +1,46 @@
+# 1. Create a directory on the Docker host
+mkdir -p ~/mydata
+
+# 2. Verify the directory
+ls -ld ~/mydata
+
+# 3. Run writer container with bind mount
+docker run -dit --name writer -v ~/mydata:/data ubuntu
+
+# 4. Write data from writer container
+docker exec writer bash -c 'echo "Hello from Writer" > /data/message.txt'
+
+# 5. Verify file from host
+ls -l ~/mydata
+
+cat ~/mydata/message.txt
+
+# 6. Run reader container using the SAME host directory
+docker run -dit --name reader -v ~/mydata:/data ubuntu
+
+# 7. Verify data from reader
+docker exec reader ls -l /data
+
+# 8. Read the file from reader
+docker exec reader cat /data/message.txt
+
+# 9. Write another file from reader
+docker exec reader bash -c 'echo "Hello from Reader" > /data/reader.txt'
+
+# 10. Verify from writer
+docker exec writer ls -l /data
+
+# 11. Verify from host
+ls -l ~/mydata
+
+# 12. Read reader's file from host
+cat ~/mydata/reader.txt
+
+# 13. See which containers use this mount
+docker ps -a --filter volume="$(realpath ~/mydata)"
+
+# 14. Inspect writer mount
+docker inspect writer --format '{{json .Mounts}}'
+
+# 15. Inspect reader mount
+docker inspect reader --format '{{json .Mounts}}'
