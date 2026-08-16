@@ -1,0 +1,23 @@
+﻿FROM mysql:8.4
+
+LABEL maintainer="Ashutosh"
+LABEL purpose="Docker MySQL Security Demo"
+LABEL demo="DO NOT USE THIS FOR REAL SECRETS"
+
+# ------------------------------------------------------------
+# BAD PRACTICE
+# Password supplied during image build
+# ------------------------------------------------------------
+
+ARG MYSQL_ROOT_PASSWORD
+
+RUN echo "MySQL password received during build"
+
+# BAD:
+# This puts the password into image configuration.
+ENV MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+
+COPY init.sql /docker-entrypoint-initdb.d/
+
+EXPOSE 3306
+

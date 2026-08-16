@@ -1,0 +1,27 @@
+﻿services:
+
+  mysql:
+    image: mysql:8.4
+
+    container_name: mysql01
+
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    secrets:
+      - mysql_root_password
+
+secrets:
+
+  mysql_root_password:
+    file: ./secrets/mysql_root_password.txt
+
+volumes:
+
+  mysql_data:
