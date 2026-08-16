@@ -60,11 +60,7 @@ EXPOSE 3306
 
 Build the image:
 
-```powershell
-docker build `
-  -f Dockerfile.bad `
-  --build-arg MYSQL_ROOT_PASSWORD=MySecret123 `
-  -t mysql-demo:bad .
+```powershell docker build   -f Dockerfile.bad  --build-arg MYSQL_ROOT_PASSWORD=MySecret123 -t mysql-demo:bad .
 ```
 
 The password has now been supplied during:
