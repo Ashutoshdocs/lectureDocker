@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Docker Build Demo</title>
+
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+
+<body>
+
+  <div class="background"></div>
+
+  <main class="container">
+
+    <div class="top-badge">
+      🐳 DOCKER DEMO
+    </div>
+
+    <h1>
+      Multi-Stage <span>Docker Build</span>
+    </h1>
+
+    <p class="subtitle">
+      Build big. Deploy small.
+    </p>
+
+    <section class="hero">
+
+      <div class="docker-icon">
+        🐳
+      </div>
+
+      <div>
+        <h2>
+          Container Optimization
+        </h2>
+
+        <p>
+          This application demonstrates how Docker
+          multi-stage builds remove unnecessary
+          build dependencies from the final image.
+        </p>
+      </div>
+
+    </section>
+
+    <section class="cards">
+
+      <div class="card">
+
+        <div class="icon">🏗️</div>
+
+        <h3>
+          Build Stage
+        </h3>
+
+        <p>
+          Node.js, npm, dependencies,
+          compilers and development tools.
+        </p>
+
+        <div class="tag large">
+          LARGE
+        </div>
+
+      </div>
+
+      <div class="arrow">
+        →
+      </div>
+
+      <div class="card">
+
+        <div class="icon">🚀</div>
+
+        <h3>
+          Production Stage
+        </h3>
+
+        <p>
+          Only the files required to
+          serve the application.
+        </p>
+
+        <div class="tag small">
+          SMALL
+        </div>
+
+      </div>
+
+    </section>
+
+    <section class="stats">
+
+      <div class="stat">
+        <strong>Node.js</strong>
+        <span>Build Environment</span>
+      </div>
+
+      <div class="stat">
+        <strong>npm</strong>
+        <span>Dependencies</span>
+      </div>
+
+      <div class="stat">
+        <strong>Nginx</strong>
+        <span>Production Server</span>
+      </div>
+
+      <div class="stat">
+        <strong>80</strong>
+        <span>Container Port</span>
+      </div>
+
+    </section>
+
+    <footer>
+      Docker • DevOps • Containers • Kubernetes
+    </footer>
+
+  </main>
+
+  <script src="src/app.js"></script>
+
+</body>
+
+</html>

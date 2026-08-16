@@ -1,7 +1,0 @@
-FROM ubuntu:24.04  
-ENTRYPOINT ["echo"]
-#docker build -f Dockerfile.entrypoint -t demo:entrypoint .
-#docker run --rm demo:entrypoint
-#docker run --rm demo:entrypoint "Hello"
-#docker run --rm demo:entrypoint "Hello Docker"
-#docker run --rm demo:entrypoint ls

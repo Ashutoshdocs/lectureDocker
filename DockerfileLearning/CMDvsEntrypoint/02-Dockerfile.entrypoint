@@ -1,0 +1,19 @@
+# ============================================================
+# 02 - ENTRYPOINT ONLY
+# ------------------------------------------------------------
+# ENTRYPOINT fixes the executable. The container now behaves
+# like the program "python app.py".
+# Anything you type after the image name becomes ARGUMENTS to
+# it -- it is NOT replaced. To replace it you must pass the
+# --entrypoint flag.
+#
+#   docker run img                 -> python app.py
+#   docker run img alice bob       -> python app.py alice bob
+#   docker run --entrypoint echo img hi  -> echo hi
+# ============================================================
+FROM python:3.12-slim
+
+WORKDIR /demo
+COPY app-demo/app.py .
+
+ENTRYPOINT ["python", "app.py"]

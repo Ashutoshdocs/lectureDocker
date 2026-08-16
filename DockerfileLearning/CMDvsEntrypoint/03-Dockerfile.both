@@ -1,0 +1,20 @@
+# ============================================================
+# 03 - ENTRYPOINT + CMD   (the classic, recommended combo)
+# ------------------------------------------------------------
+# ENTRYPOINT = the command that ALWAYS runs.
+# CMD        = the DEFAULT arguments handed to that ENTRYPOINT.
+#
+# When both use exec form, CMD is APPENDED to ENTRYPOINT:
+#
+#   docker run img              -> python app.py default-user
+#   docker run img alice bob    -> python app.py alice bob   (CMD replaced)
+#
+# The executable stays locked; only the arguments change.
+# ============================================================
+FROM python:3.12-slim
+
+WORKDIR /demo
+COPY app-demo/app.py .
+
+ENTRYPOINT ["python", "app.py"]
+CMD ["default-user"]

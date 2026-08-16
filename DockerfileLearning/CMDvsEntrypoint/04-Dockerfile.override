@@ -1,0 +1,29 @@
+# ============================================================
+# 04 - OVERRIDE BEHAVIOUR & THE SHELL-FORM TRAP
+# ------------------------------------------------------------
+# This file shows a VERY COMMON MISTAKE: writing ENTRYPOINT in
+# SHELL form. When you do that, Docker actually runs:
+#
+#       /bin/sh -c "python app.py baked-in"
+#
+# and as a result:
+#   * the CMD below is IGNORED
+#   * arguments from `docker run` are IGNORED
+#   * the app does NOT run as PID 1 (signal handling breaks)
+#
+# Compare it against 03 to see the difference, then practise
+# the two legitimate ways to override at run time:
+#   1) append/replace args : docker run <img> arg1 arg2
+#   2) replace entrypoint  : docker run --entrypoint <cmd> <img>
+# ============================================================
+FROM python:3.12-slim
+
+WORKDIR /demo
+COPY app-demo/app.py .
+
+# SHELL FORM (intentionally "wrong" for teaching).
+ENTRYPOINT python app.py baked-in
+
+# Looks like it supplies args, but it is IGNORED because the
+# ENTRYPOINT above is in shell form.
+CMD ["this-is-ignored"]
