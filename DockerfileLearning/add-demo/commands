@@ -1,4 +1,4 @@
 docker build -t nginx-github-demo .
-docker build -t nginx-github-dontdeletetarfile -f Dockerfilejustadd .
+docker build -t nginx-github-dontdeletetarfile -f Dockerfile.justadd .
 docker run -d --name nginx-demo -p 8080:80 nginx-github-demo
 docker run -d --name goinsidethecontainer  -p 8080:80 nginx-github-dontdeletetarfile
