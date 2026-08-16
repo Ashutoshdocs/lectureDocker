@@ -315,10 +315,7 @@ For a clean demonstration, remove the container and associated data appropriatel
 Instead of putting the password directly into the command:
 
 ```powershell
-docker run -d `
-  --name mysql01 `
-  -e MYSQL_ROOT_PASSWORD=MySecret123 `
-  mysql-demo:1.0
+docker run -d --name mysql01 -e MYSQL_ROOT_PASSWORD=MySecret123 mysql-demo:1.0
 ```
 
 PowerShell can store it in an environment variable:
@@ -330,11 +327,7 @@ $env:MYSQL_ROOT_PASSWORD = "MySecret123"
 Then:
 
 ```powershell
-docker run -d `
-  --name mysql01 `
-  -e MYSQL_ROOT_PASSWORD `
-  -p 3306:3306 `
-  mysql-demo:1.0
+docker run -d   --name mysql01   -e MYSQL_ROOT_PASSWORD -p 3306:3306 mysql-demo:1.0
 ```
 
 This avoids putting the literal password in that particular command.
