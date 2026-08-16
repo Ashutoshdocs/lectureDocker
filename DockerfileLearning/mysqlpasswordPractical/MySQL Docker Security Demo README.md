@@ -153,11 +153,7 @@ mysql-demo:1.0
 Supply the password when creating the container:
 
 ```powershell
-docker run -d `
-  --name mysql01 `
-  -e MYSQL_ROOT_PASSWORD=MySecret123 `
-  -p 3306:3306 `
-  mysql-demo:1.0
+docker run -d --name mysql01 -e MYSQL_ROOT_PASSWORD=MySecret123 -p 3306:3306  mysql-demo:1.0
 ```
 
 Check the container:
