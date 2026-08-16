@@ -1,0 +1,2 @@
+docker build -t nginx-github-demo .
+docker run -d --name nginx-demo -p 8080:80 nginx-github-demo
