@@ -1,0 +1,25 @@
+docker volume create mydata
+
+docker volume ls
+
+docker volume inspect mydata
+
+docker run -dit --name writer -v mydata:/data ubuntu
+
+docker exec writer bash -c 'echo "Hello from Writer" > /data/message.txt'
+
+docker run -dit --name reader -v mydata:/data ubuntu
+
+docker exec reader ls -l /data
+
+docker exec reader cat /data/message.txt
+
+docker exec reader bash -c 'echo "Hello from Reader" > /data/reader.txt'
+
+docker exec writer ls -l /data
+
+docker ps -a --filter volume=mydata
+
+docker inspect writer --format '{{json .Mounts}}'
+
+docker inspect reader --format '{{json .Mounts}}'
