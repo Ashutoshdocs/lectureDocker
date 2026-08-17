@@ -1,0 +1,22 @@
+docker volume create demo-volume
+
+docker run -it --name commit-volume-demo \
+  -v demo-volume:/data \
+  ubuntu bash
+
+echo "NORMAL DATA" > /normal.txt
+echo "VOLUME DATA" > /data/volume.txt
+
+cat /normal.txt
+cat /data/volume.txt
+
+exit
+
+
+docker commit commit-volume-demo commit-test:v1
+
+docker images commit-test
+
+docker run --rm -it --name test-from-commit commit-test:v1 bash
+ls -l /normal.txt
+ls -l /data
