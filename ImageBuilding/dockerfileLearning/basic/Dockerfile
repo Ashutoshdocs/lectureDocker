@@ -17,3 +17,5 @@ WORKDIR /app
 RUN apk add --no-cache curl
 RUN echo "Hello Docker" > hello.txt
 RUN mkdir logs
+
+#docker build -t basic-demo:v1 .
