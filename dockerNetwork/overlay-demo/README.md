@@ -15,31 +15,83 @@ Instead of the fragile `sh -c "echo ... > index.html"` trick, the pages are inje
 with **Docker Swarm configs** (immutable, versioned, no rebuild).
 
 ## Files
-- `deploy.sh` — self-contained. Copy to a **manager** node and run. Writes all assets,
-  creates the network, labels nodes, creates configs + both services.
+- `deploy.sh` — self-contained. Copy to the **manager** node and run *after the swarm
+  exists* (see Prerequisites). Writes all assets, labels the nodes, creates the overlay
+  network, the configs, and both services. Idempotent — re-run to update.
 - `assets/index1.html`, `assets/index2.html` — browser pages (edit these to taste).
 - `assets/cli1.txt`, `assets/cli2.txt` — the ANSI terminal pages.
 - `assets/default.conf` — nginx config doing the User-Agent content negotiation.
 - `gen_cli.py` — regenerates the ANSI pages if you edit them.
 
-## Quick start
+## Prerequisites — form the swarm first (do this once)
+
+`deploy.sh` assumes a working swarm with at least one worker. It does **not** run
+`swarm init` / `join` for you. Two VMs with Docker installed are not yet a swarm — form
+the cluster first.
+
+**1. Open the ports between the two VMs** (security group / NSG on cloud, or `ufw` on a
+bare VM). These are required *between the nodes*, in addition to the app ports 8081/8082
+you expose to the outside:
+
+| Port      | Proto     | Purpose                         |
+|-----------|-----------|---------------------------------|
+| 2377      | TCP       | cluster management (managers)   |
+| 7946      | TCP + UDP | node-to-node discovery          |
+| 4789      | UDP       | overlay data plane (VXLAN)      |
+| 8081/8082 | TCP       | the demo apps (public)          |
+
+If 4789/7946 are blocked, the swarm still forms and services still start, but
+cross-node overlay traffic silently fails (e.g. `svc1` can't reach `svc2` by name).
+
+**2. On VM1 (manager):**
 ```bash
-scp deploy.sh user@<manager-vm>:~
-ssh user@<manager-vm>
-bash deploy.sh
+docker swarm init --advertise-addr <VM1_PRIVATE_IP>
 ```
-Then:
+`--advertise-addr` matters on cloud VMs with more than one interface. This prints a
+`docker swarm join --token SWMTKN-... <VM1_PRIVATE_IP>:2377` line — copy it.
+
+**3. On VM2 (worker):** paste the exact line from step 2:
 ```bash
-curl http://<vm-ip>:8081      # Container 1, in colour
-curl http://<vm-ip>:8082      # Container 2, in colour
-# open http://<vm-public-ip>:8081  and  :8082 in a browser for the HTML pages
+docker swarm join --token SWMTKN-... <VM1_PRIVATE_IP>:2377
 ```
+
+**4. Back on VM1, confirm both nodes joined:**
+```bash
+docker node ls        # expect 2 nodes, one marked Leader
+```
+
+## Quick start (after the swarm exists)
+```bash
+scp deploy.sh user@<VM1_manager>:~
+ssh user@<VM1_manager>
+bash deploy.sh                 # auto-labels nodes, builds net + configs + services
+```
+No manual `docker node update` needed — the script labels the manager and the first
+worker itself. Then:
+```bash
+curl http://<VM1_IP>:8081     # svc1 (manager), in colour
+curl http://<VM2_IP>:8082     # svc2 (worker), in colour
+# browser: http://<VM1_public_IP>:8081  and  http://<VM2_public_IP>:8082 for the HTML pages
+```
+Swarm's routing mesh means either port also answers on *either* VM's IP
+(`http://<VM1_IP>:8082` works too) — it forwards to wherever the task runs.
 
 ---
 
 ## Manual command reference (equivalent to deploy.sh)
 
+All commands run **on the manager (VM1)** unless noted. The asset files must exist on
+VM1 (that's where `docker config create` reads them from).
+
 ```bash
+# 0. Form the swarm  (skip if already done)
+#    On VM1:
+docker swarm init --advertise-addr <VM1_PRIVATE_IP>
+#    On VM2, paste the join line VM1 printed:
+docker swarm join --token SWMTKN-... <VM1_PRIVATE_IP>:2377
+#    Back on VM1:
+docker node ls
+
 # 1. Overlay network
 docker network create --driver overlay --subnet 20.0.0.0/24 my-overlay-net
 
