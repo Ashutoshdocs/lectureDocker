@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Two-tier Docker Swarm demo
-#    web  service -> MANAGER node, publishes :8080 (browser form + JSON API)
+#  Two-tier Docker Swarm demo (replicated web)
+#    web  service -> REPLICAS spread across BOTH nodes, publishes :8080
 #    db   service -> WORKER  node, Postgres with a persistent volume
 #  Data typed in the browser is written across the overlay into the worker's DB.
+#  Requests round-robin across web replicas, so the web_host column varies.
+#  Override replica count:  REPLICAS=6 bash deploy.sh
 #
 #  Run ON THE MANAGER, AFTER the swarm is formed (swarm init + worker join).
 #      bash deploy.sh
@@ -15,6 +17,7 @@ SUBNET=10.20.0.0/24
 DB_NAME=appdb
 DB_USER=appuser
 DB_PASS=apppass
+REPLICAS="${REPLICAS:-4}"          # web replicas, spread across both nodes
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -73,10 +76,11 @@ docker service create --name db \
   --mount type=volume,source=db-data,target=/var/lib/postgresql/data \
   postgres:16-alpine >/dev/null
 
-# --- web service (manager) --------------------------------------------------
-echo ">> creating web service (manager, :8080)"
+# --- web service (replicated, spread across both nodes) ---------------------
+echo ">> creating web service ($REPLICAS replicas, spread across nodes, :8080)"
 docker service create --name web \
-  --constraint 'node.labels.role==manager' \
+  --replicas "$REPLICAS" \
+  --placement-pref 'spread=node.id' \
   --network "$NET" \
   --publish published=8080,target=80 \
   --env DB_HOST=db \
@@ -90,14 +94,14 @@ docker service create --name web \
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
 echo "=============================================================="
-echo " Deployed.  web -> :8080 (manager)   db -> Postgres (worker)"
+echo " Deployed.  web -> :8080 ($REPLICAS replicas)   db -> Postgres (worker)"
 echo "--------------------------------------------------------------"
 echo " Open the form in a browser:"
 echo "   http://${IP:-<manager-ip>}:8080"
-echo " JSON view (any host, curl):"
-echo "   curl http://${IP:-<manager-ip>}:8080/api/messages"
+echo " Watch which replica answers (round-robins across nodes):"
+echo "   for i in \$(seq 8); do curl -s http://${IP:-<manager-ip>}:8080/api/messages | grep -m1 web_host; done"
 echo "--------------------------------------------------------------"
+echo " See replicas placed on both nodes:  docker service ps web"
 echo " web needs ~20-40s on first start (pip install + db warmup)."
-echo " Watch:  docker service ls ; docker service ps web db"
 echo " Logs :  docker service logs -f web"
 echo "=============================================================="

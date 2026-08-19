@@ -6,14 +6,19 @@ service on the **worker** node — and read straight back. You then prove the ro
 by opening a shell inside the db container on the worker and querying the table.
 
 ```
- browser ──HTTP :8080──▶ web  (manager) ──overlay app-net──▶ db (worker, Postgres)
-                         python app                          persistent volume db-data
+                    ┌─▶ web replica (manager) ─┐
+ browser ─:8080─▶ routing mesh                 ├─overlay app-net─▶ db (worker, Postgres)
+                    └─▶ web replica (worker)  ─┘                   persistent volume db-data
 ```
 
-| Service | Node        | Image             | Port  | Role                                   |
-|---------|-------------|-------------------|-------|----------------------------------------|
-| `web`   | **manager** | `python:3.11-slim`| 8080  | serves the form + `/api/messages` JSON |
-| `db`    | **worker**  | `postgres:16-alpine` | —  | stores rows in volume `db-data`        |
+`web` runs as **several replicas spread across both nodes**. Swarm's routing mesh
+round-robins requests across them, so the `web_host` column (and the served-by line)
+changes as different replicas answer. `db` stays pinned to the worker.
+
+| Service | Node             | Image                | Port  | Role                                   |
+|---------|------------------|----------------------|-------|----------------------------------------|
+| `web`   | **both** (×N)    | `python:3.11-slim`   | 8080  | serves the form + `/api/messages` JSON |
+| `db`    | **worker**       | `postgres:16-alpine` | —     | stores rows in volume `db-data`        |
 
 The web app is injected into the stock Python image as a **Swarm config** (no image
 build, no registry). The db has **no published port** — it is reachable only inside the
@@ -23,7 +28,9 @@ overlay by the service name `db`, which is the point of the demo.
 
 ## Files
 - `deploy.sh` — self-contained. Copy to the **manager** and run *after* the swarm exists.
-  Writes the app, labels nodes, creates the network + config + both services. Idempotent.
+  Writes the app, labels nodes, creates the network + config, the worker `db`, and the
+  replicated `web` (spread across both nodes). Idempotent. Override count with
+  `REPLICAS=N bash deploy.sh`.
 - `assets/app.py` — the web tier: stdlib HTTP server + `psycopg2`. Serves the HTML form,
   handles the POST, and exposes `GET /api/messages` (JSON) for curl verification.
 - `README.md` — this file.
@@ -69,9 +76,13 @@ docker node ls          # expect 2 nodes, one marked Leader
 ```bash
 scp deploy.sh user@<VM1_manager>:~
 ssh user@<VM1_manager>
-bash deploy.sh
+bash deploy.sh                  # 4 web replicas by default
+# or choose the count:
+REPLICAS=6 bash deploy.sh
 ```
 The script auto-labels the manager and the first worker — no manual `docker node update`.
+It creates the `web` service with `--replicas` and `--placement-pref 'spread=node.id'`,
+so replicas land on **both** nodes.
 
 > First start takes ~20–40s: the web container runs `pip install psycopg2-binary` and
 > waits for Postgres to finish initialising. Watch it:
@@ -94,6 +105,49 @@ on :8080 reaches the web task on the manager.
 
 Type a **name** and **message**, click **Commit to worker database**. The row appears in
 the "Stored rows" table immediately (that list is read live from the worker's Postgres).
+The footer's "web served by …" line and each row's **Web host** column show *which
+replica* handled the request.
+
+---
+
+## Watch requests spread across web replicas
+
+First, confirm replicas are placed on both nodes (run on the manager):
+```bash
+docker service ps web
+# NODE column should list both VM1 and VM2
+```
+
+The cleanest way to see the round-robin is a curl loop — each request is a fresh
+connection, so the mesh load-balances every time:
+```bash
+for i in $(seq 8); do
+  curl -s http://<VM1_IP>:8080/api/messages | grep -m1 '"web_host"'
+done
+# the web_host value cycles through the replica ids
+```
+Or read it straight from the response header:
+```bash
+curl -s -D - -o /dev/null http://<VM1_IP>:8080/ | grep -i X-Web-Host
+```
+
+Now submit a few entries and each stored row records the replica that inserted it:
+```bash
+curl -s -o /dev/null -d "name=ada&message=one"   http://<VM1_IP>:8080/add
+curl -s -o /dev/null -d "name=ada&message=two"   http://<VM1_IP>:8080/add
+curl -s -o /dev/null -d "name=ada&message=three" http://<VM1_IP>:8080/add
+curl -s http://<VM1_IP>:8080/api/messages        # see differing web_host per row
+```
+
+Scale up or down live and watch the spread change (no redeploy):
+```bash
+docker service scale web=6
+docker service ps web
+```
+
+> **In a browser** the `web_host` still varies, but less predictably: browsers reuse a
+> keep-alive connection, so several clicks may hit the same replica before switching.
+> The curl loop above is the reliable way to see clean round-robin.
 
 ---
 
@@ -119,9 +173,10 @@ Expected output (your rows):
   2 | grace | second entry           | web.1.<hash>  | 2026-08-19 04:18:32.157+00
 ```
 
-The `web_host` column shows the **web container** (on the manager) that inserted the row,
-while the query itself runs inside the **db container on the worker** — so a single output
-proves the data crossed from manager to worker over the overlay.
+With multiple replicas the `web_host` values will **differ between rows** — each shows the
+web container that inserted that row (on either node), while the query itself runs inside
+the **db container on the worker**. So a single output proves both that requests were
+load-balanced across replicas and that every row landed in the one database on the worker.
 
 Two more cross-node checks (run from the manager, VM1):
 
