@@ -1,0 +1,96 @@
+# 1. Create a directory on the Docker host for the mounted file share
+mkdir -p /mnt/fileshare
+
+# 2. Verify the directory
+ls -ld /mnt/fileshare
+
+# 3. Mount your file share on the Docker host
+# Example: Azure Files / SMB share
+# Replace <STORAGE_ACCOUNT>, <FILE_SHARE>, and credentials as required
+mount -t cifs //<STORAGE_ACCOUNT>.file.core.windows.net/<FILE_SHARE> \
+  /mnt/fileshare \
+  -o vers=3.0,username=<STORAGE_ACCOUNT>,password=<STORAGE_KEY>,dir_mode=0777,file_mode=0777,serverino
+
+# 4. Verify that the file share is mounted
+df -h /mnt/fileshare
+
+# 5. Verify the mounted directory
+mount | grep /mnt/fileshare
+
+# 6. Create a test file directly on the mounted file share
+echo "Created from Docker Host" > /mnt/fileshare/host.txt
+
+# 7. Verify the file
+ls -l /mnt/fileshare
+
+cat /mnt/fileshare/host.txt
+
+# 8. Run writer container using the mounted file share
+docker run -dit --name writer \
+  -v /mnt/fileshare:/data \
+  ubuntu
+
+# 9. Write data from writer container
+docker exec writer bash -c \
+  'echo "Hello from Writer" > /data/message.txt'
+
+# 10. Verify file from Docker host
+ls -l /mnt/fileshare
+
+cat /mnt/fileshare/message.txt
+
+# 11. Run reader container using the SAME mounted file share
+docker run -dit --name reader \
+  -v /mnt/fileshare:/data \
+  ubuntu
+
+# 12. Verify data from reader
+docker exec reader ls -l /data
+
+# 13. Read the writer's file from reader
+docker exec reader cat /data/message.txt
+
+# 14. Write another file from reader
+docker exec reader bash -c \
+  'echo "Hello from Reader" > /data/reader.txt'
+
+# 15. Verify reader's file from writer
+docker exec writer ls -l /data
+
+# 16. Read reader's file from writer
+docker exec writer cat /data/reader.txt
+
+# 17. Verify all files from Docker host
+ls -l /mnt/fileshare
+
+# 18. Read reader's file from Docker host
+cat /mnt/fileshare/reader.txt
+
+# 19. See which containers are using this bind mount
+docker ps -a --filter volume="$(realpath /mnt/fileshare)"
+
+# 20. Inspect writer mount
+docker inspect writer --format '{{json .Mounts}}'
+
+# 21. Inspect reader mount
+docker inspect reader --format '{{json .Mounts}}'
+
+# 22. Check the mount inside the writer container
+docker exec writer mount | grep /data
+
+# 23. Check the mount inside the reader container
+docker exec reader mount | grep /data
+
+# 24. Prove both containers see the same data
+docker exec writer ls -l /data
+docker exec reader ls -l /data
+
+# 25. Clean up the containers
+docker rm -f writer reader
+
+# 26. Verify the files still exist on the file share
+ls -l /mnt/fileshare
+
+# 27. Verify data survives container deletion
+cat /mnt/fileshare/message.txt
+cat /mnt/fileshare/reader.txt
