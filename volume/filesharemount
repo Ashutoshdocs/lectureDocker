@@ -4,9 +4,8 @@ mkdir -p /mnt/fileshare
 # 2. Verify the directory
 ls -ld /mnt/fileshare
 
-# 3. Mount your file share on the Docker host
-# Example: Azure Files / SMB share
-# Replace <STORAGE_ACCOUNT>, <FILE_SHARE>, and credentials as required
+# 3. Mount your Azure File Share on the Docker host
+# Replace <STORAGE_ACCOUNT>, <FILE_SHARE>, and <STORAGE_KEY>
 mount -t cifs //<STORAGE_ACCOUNT>.file.core.windows.net/<FILE_SHARE> \
   /mnt/fileshare \
   -o vers=3.0,username=<STORAGE_ACCOUNT>,password=<STORAGE_KEY>,dir_mode=0777,file_mode=0777,serverino
@@ -14,83 +13,101 @@ mount -t cifs //<STORAGE_ACCOUNT>.file.core.windows.net/<FILE_SHARE> \
 # 4. Verify that the file share is mounted
 df -h /mnt/fileshare
 
-# 5. Verify the mounted directory
+# 5. Verify the mount
 mount | grep /mnt/fileshare
 
-# 6. Create a test file directly on the mounted file share
-echo "Created from Docker Host" > /mnt/fileshare/host.txt
+# 6. Create index.html directly on the mounted file share
+cat > /mnt/fileshare/index.html <<'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Docker + Azure File Share</title>
+</head>
+<body>
+    <h1>Hello from Azure File Share!</h1>
+    <h2>Served by Nginx Container</h2>
+    <p>This index.html is stored on the mounted file share.</p>
+</body>
+</html>
+EOF
 
-# 7. Verify the file
-ls -l /mnt/fileshare
+# 7. Verify index.html exists on the file share
+ls -l /mnt/fileshare/index.html
 
-cat /mnt/fileshare/host.txt
+# 8. Verify the contents
+cat /mnt/fileshare/index.html
 
-# 8. Run writer container using the mounted file share
-docker run -dit --name writer \
-  -v /mnt/fileshare:/data \
-  ubuntu
+# 9. Pull the Nginx image
+docker pull nginx:alpine
 
-# 9. Write data from writer container
-docker exec writer bash -c \
-  'echo "Hello from Writer" > /data/message.txt'
+# 10. Run Nginx container using the file share
+docker run -d \
+  --name nginx-fileshare \
+  -p 80:80 \
+  -v /mnt/fileshare:/usr/share/nginx/html:ro \
+  nginx:alpine
 
-# 10. Verify file from Docker host
-ls -l /mnt/fileshare
+# 11. Verify the container is running
+docker ps
 
-cat /mnt/fileshare/message.txt
+# 12. Verify the bind mount
+docker inspect nginx-fileshare --format '{{json .Mounts}}'
 
-# 11. Run reader container using the SAME mounted file share
-docker run -dit --name reader \
-  -v /mnt/fileshare:/data \
-  ubuntu
+# 13. Verify index.html exists inside the Nginx container
+docker exec nginx-fileshare ls -l /usr/share/nginx/html
 
-# 12. Verify data from reader
-docker exec reader ls -l /data
+# 14. Read index.html from inside the container
+docker exec nginx-fileshare cat /usr/share/nginx/html/index.html
 
-# 13. Read the writer's file from reader
-docker exec reader cat /data/message.txt
+# 15. Test Nginx from the Docker host
+curl http://localhost
 
-# 14. Write another file from reader
-docker exec reader bash -c \
-  'echo "Hello from Reader" > /data/reader.txt'
+# 16. Test using the VM's IP address
+curl http://<VM_PRIVATE_OR_PUBLIC_IP>
 
-# 15. Verify reader's file from writer
-docker exec writer ls -l /data
+# 17. Check Nginx logs
+docker logs nginx-fileshare
 
-# 16. Read reader's file from writer
-docker exec writer cat /data/reader.txt
+# 18. Modify index.html directly on the file share
+cat > /mnt/fileshare/index.html <<'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Updated Website</title>
+</head>
+<body>
+    <h1>Updated from Azure File Share!</h1>
+    <p>Nginx is serving this file directly from the mounted file share.</p>
+</body>
+</html>
+EOF
 
-# 17. Verify all files from Docker host
-ls -l /mnt/fileshare
+# 19. Verify the updated file from inside the container
+docker exec nginx-fileshare cat /usr/share/nginx/html/index.html
 
-# 18. Read reader's file from Docker host
-cat /mnt/fileshare/reader.txt
+# 20. Test the updated website
+curl http://localhost
 
-# 19. See which containers are using this bind mount
-docker ps -a --filter volume="$(realpath /mnt/fileshare)"
+# 21. Verify the mount from inside the container
+docker exec nginx-fileshare mount | grep /usr/share/nginx/html
 
-# 20. Inspect writer mount
-docker inspect writer --format '{{json .Mounts}}'
+# 22. Inspect the complete container mount configuration
+docker inspect nginx-fileshare --format '{{json .Mounts}}'
 
-# 21. Inspect reader mount
-docker inspect reader --format '{{json .Mounts}}'
+# 23. Stop the container
+docker stop nginx-fileshare
 
-# 22. Check the mount inside the writer container
-docker exec writer mount | grep /data
+# 24. Remove the container
+docker rm nginx-fileshare
 
-# 23. Check the mount inside the reader container
-docker exec reader mount | grep /data
+# 25. Verify index.html still exists on the file share
+ls -l /mnt/fileshare/index.html
 
-# 24. Prove both containers see the same data
-docker exec writer ls -l /data
-docker exec reader ls -l /data
+# 26. Verify the data survived container deletion
+cat /mnt/fileshare/index.html
 
-# 25. Clean up the containers
-docker rm -f writer reader
+# 27. Unmount the Azure File Share when finished
+umount /mnt/fileshare
 
-# 26. Verify the files still exist on the file share
-ls -l /mnt/fileshare
-
-# 27. Verify data survives container deletion
-cat /mnt/fileshare/message.txt
-cat /mnt/fileshare/reader.txt
+# 28. Verify it is no longer mounted
+df -h /mnt/fileshare
